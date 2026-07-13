@@ -20,7 +20,7 @@ components to create a test:
 ## Step
 
 A step is the lowest level component in the test registry. A step defines a base container image, the filename of the shell script to run inside the
-container, the resource requests and limits for the container, and documentation for the step. Example of a step:
+container, the resource requests and limits for the container, and documentation for the step. On build farm clusters, pod-scaler may further adjust those resources at admission time based on historical usage (see [Pod Scaler](/internals/pod-scaler/)). Example of a step:
 
 {{< highlight yaml >}}
 ref:

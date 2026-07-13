@@ -38,6 +38,7 @@ Below is a non-exhaustive list of CI services.
 * [search.ci.openshift.org](https://search.ci.openshift.org/): search tool for error messages in job logs and Bugzilla bugs.
 * [sippy.dptools.openshift.org](https://sippy.dptools.openshift.org/): CI release health summary.
 * [steps.ci.openshift.org](https://steps.ci.openshift.org/): [Step registry](/architecture/step-registry/) viewer.
+* [Pod Scaler](/internals/pod-scaler/) (build clusters): adjusts pod CPU/memory from historical usage at admission; opt-out, troubleshooting, and operator notes. UI on `app.ci` when deployed.
 
 # Contact
 
