@@ -170,6 +170,26 @@ credentials:
 
 All fields from all groups in the bundle are mounted under the specified path.
 
+### Infrastructure bundles (`sync_to_cluster`)
+
+Some bundles managed by the Test Platform team -- such as infrastructure secrets and
+[cluster profile secrets](/how-tos/adding-a-cluster-profile/) -- use `sync_to_cluster: true`, which
+syncs them to CI clusters as Kubernetes Secrets. This is not intended for regular user bundles.
+
+In the rare case when you must reference such a bundle in your multi-stage test, 
+you **must** provide `namespace` matching one of the bundle's `targets` in `gsm-config.yaml` 
+(the namespace the bundle is synced to on the cluster):
+
+```yaml
+credentials:
+- bundle: my-synced-bundle
+  namespace: test-credentials
+  mount_path: /var/run/my-synced-bundle
+```
+
+The `namespace` tells ci-operator where to find the pre-synced K8s Secret on the cluster.
+Regular user bundles do not need `namespace`.
+
 {{% alert title="Note" color="info" %}}
 Changes to bundles require a PR to `openshift/release`. After the PR is merged, it may take 1-2 hours
 for the changes to be propagated to CI jobs.
@@ -251,3 +271,37 @@ sm create -c my-collection db/password --from-literal="s3cr3t"
 
 This way your test scripts can source `secrets.sh` for convenience, while Prow still knows to censor `s3cr3t` from
 artifacts. The tradeoff is that you must keep both fields in sync when rotating the secret.
+
+## Use a Secret in Non-Step Jobs
+
+{{% alert title="Warning" color="warning" %}}
+This section applies only to jobs that have not yet been converted to multistage tests with steps. It is strongly
+recommended to use [steps](/architecture/step-registry/) for any new jobs.
+{{% /alert %}}
+
+For jobs generated from `ci-operator` configuration that do not use steps, secrets can be mounted via
+the `secrets` stanza in the `ci-operator` configuration:
+
+```yaml
+tests:
+- as: my-test
+  commands: make test
+  container:
+    from: src
+  secrets:
+  - collection: my-collection
+    group: aws
+    mount_path: /var/run/aws-creds
+  - collection: my-collection
+    group: gcp
+    field: credentials
+    as: sa-key
+    mount_path: /var/run/gcp-creds
+  - bundle: my-app-secrets
+    mount_path: /var/run/app-secrets
+```
+
+{{% alert title="Note" color="info" %}}
+The `secrets` stanza does not support the `namespace` field. Bundle references in container tests
+always use the CSI path (direct GSM fetch), regardless of the bundle's `sync_to_cluster` setting.
+{{% /alert %}}
