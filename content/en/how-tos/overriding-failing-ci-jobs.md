@@ -24,6 +24,32 @@ situation, so when asking for an override (or being asked), consider who the rig
 override.  That might be another approver, or perhaps even someone who's not an approver but has a better understanding of the failure
 you want to override and/or the changes the PR is introducing, so they can properly determine whether it is safe/reasonable to override.
 
+## Sticky overrides
+
+A regular `/override` expires when the base branch moves (i.e. when another PR merges), because Tide retests the PR against
+the new base and the override no longer applies.  In a high-traffic repository this means a regular override often doesn't
+survive long enough for the PR to merge.
+
+`/override-sticky` solves this by marking the override so that it persists across Tide retests on the current HEAD SHA, even
+when the base branch moves.  The override is cleared automatically when a new commit is pushed to the PR (new SHA = clean slate).
+
+### Commands
+
+- `/override-sticky <context>` — forces a context to green and persists across base branch movement.  Like `/override`, the
+  `ci/prow/` prefix is necessary when overriding prow contexts, and contexts with spaces must be quoted.
+- `/override-cancel [context]` — removes an override (regular or sticky) by setting the status back to failure.  If a context
+  is given, only that override is removed.  If no context is given, all overrides on the PR are removed.
+
+### When to use sticky vs. regular override
+
+Use a regular `/override` in low-traffic repositories where nothing else is likely to merge before your PR does, or when
+you expect the next merge into the base branch to fix the failing context (since the retest against the new base will
+pick up the fix).  Use `/override-sticky` in high-traffic repositories where the base branch moves frequently, causing
+regular overrides to be invalidated before the PR can merge.
+
+The same authorization rules and caution described below apply to both commands — `/override-sticky` is not a way to bypass
+review, it simply prevents you from having to re-issue the override repeatedly.
+
 ## Things to do before applying an override
 
 1. Confirm that someone/team owns and is aware of the failure you are trying to override.  Don't just override something broken and let
