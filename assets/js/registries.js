@@ -9,7 +9,7 @@ $(document).ready(function () {
         "info": false,
         "searching": false,
         "ajax": {
-            "url": window.HUGO_PARAMS.api_v1_url + "/api/v1/clusters?skipHive=true",
+            "url": window.HUGO_PARAMS.api_v1_url + "/api/v1/clusters?skipHostedMgmt=true",
             "dataType": "jsonp",
         },
         "columns": [
