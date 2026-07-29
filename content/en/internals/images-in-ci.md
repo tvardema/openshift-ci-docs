@@ -83,9 +83,22 @@ However, the additional layers of components on top of `QCI` might increase the 
 
 ## The Integrated Image Registry on APP.CI
 
-The integrated image registry on `app.ci`, `registry.ci.openshift.org`, had been authoritative central CI registry
-before `QCI` took over the role.
-For the sake of Release Controllers, the promoted images are also available on `app.ci`.
+The integrated image registry on `app.ci`, `registry.ci.openshift.org`, had been the authoritative central CI registry
+before `QCI` took over that role.
+
+**Today (transitional):** promoted images may still appear on `app.ci` so Release Controllers and a few other internal
+consumers keep working. Humans and integrations should still pull from [QCI via quay-proxy](/how-tos/use-registries-in-build-farm/),
+not treat `registry.ci.openshift.org` as the source of truth.
+
+{{% alert title="Coming soon" color="info" %}}
+**After the QCI migration completes:**
+
+- **Non-payload** promotion is QCI-only — no new app.ci ImageStream tags / blob copies for those images.
+- **Payload** namespaces (`ocp`, `ocp-priv`, `origin`) keep app.ci ImageStream tags, but as **references to QCI digests** (source-refs), not a second full copy of every layer on `registry.ci.openshift.org`.
+- **Emergency only:** Test Platform can backfill a tag from QCI onto app.ci via `qciToAppCIImages` in the [ci-images-mirror config](https://github.com/openshift/release/blob/main/core-services/image-mirroring/_config.yaml); sources must be QCI / quay-proxy, never an arbitrary registry.
+
+For a layman walkthrough of what users do day-to-day, see [Coming soon: life after the QCI migration](/how-tos/use-registries-in-build-farm/#coming-soon-life-after-the-qci-migration).
+{{% /alert %}}
 
 
 ## Troubleshooting

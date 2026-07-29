@@ -42,10 +42,97 @@ images are built on a build farm and [promoted](/architecture/ci-operator/#publi
 copies they hold are up-to-date and jobs that run there run with the correct container image versions.
 
 {{< alert title="Info" color="info" >}}
-In addition to QCI, `ci-operator` promotes images to `app.ci`'s registry `registry.ci.openshift.org` _only_ for the sake of internal automation such as Release Controllers, and [mirroring CI images to an external repository](/how-tos/mirroring-to-quay/#mirror-images-with-wildcard).
-ART still pushes the builder images for CI to `app.ci`'s registry and [then mirrored to QCI](https://github.com/openshift/release/blob/main/core-services/image-mirroring/_config.yaml) before a more sustainable way is available to ART.
-Clients from CI users or their integration should _not_ reference the images there. Instead, please replace them with the corresponding image in QCI.
+**Today (transitional):** `ci-operator` may still place tags on `app.ci`'s registry `registry.ci.openshift.org` for internal automation such as Release Controllers and [external mirroring](/how-tos/mirroring-to-quay/#mirror-images-with-wildcard). That path is shrinking — see [Coming soon: life after the QCI migration](#coming-soon-life-after-the-qci-migration).
+
+ART still pushes builder images for CI to `app.ci` and they are [mirrored to QCI](https://github.com/openshift/release/blob/main/core-services/image-mirroring/_config.yaml).
+
+**Rule of thumb for humans and integrations:** do not hardcode `registry.ci.openshift.org` for CI-published images. Pull from QCI via `quay-proxy.ci.openshift.org` instead.
 {{< /alert >}}
+
+# Coming soon: life after the QCI migration
+
+{{% alert title="Coming soon" color="info" %}}
+This section describes the **intended end state** of the QCI migration. Pieces are landing over time in `ci-tools` / `openshift/release`. Until a change is fully rolled out, behavior may still look like the transitional setup above. When in doubt, treat **QCI + quay-proxy** as the place you pull from.
+{{% /alert %}}
+
+In plain terms: we are finishing the move so that **Quay holds the real image bits** for CI, and `app.ci` stops being a second copy of every promoted image. Your day-to-day as a component owner stays simple; most of the complexity is platform plumbing.
+
+## What stays the same for you
+
+| You still… | Unchanged details |
+|---|---|
+| Declare `promotion:` in `ci-operator` config | Same YAML shape (`namespace` / `name` / `tag`). You do not rewrite promotion stanzas for QCI. |
+| Pull published images via quay-proxy | `quay-proxy.ci.openshift.org/openshift/ci:<namespace>_<name>_<tag>` after logging in with an `app.ci` token (see below). |
+| Reference ImageStream-style names in config | `base_images`, `from:`, Dockerfile `FROM registry.ci…` entries continue to resolve through CI to the QCI float. |
+| Debug a live job’s builds | Ephemeral build-farm registries (`registry.buildNN…`) for `ci-op-*` namespaces stay as they are today. |
+
+## What changes under the hood
+
+Think of three buckets of images:
+
+1. **Payload / release-facing images** (namespaces such as `ocp`, `ocp-priv`, and OKD’s `origin`)  
+   Promotion pushes the image **to QCI**. On `app.ci`, ImageStream tags remain so Release Controllers and related automation can keep working — but those tags are **references** (source-refs) to the QCI digest, not a second full blob store of every layer on `registry.ci.openshift.org`.
+
+2. **Everything else (non-payload CI images)**  
+   Promotion becomes **QCI-only**. No new ImageStream tags / blob copies are created on `app.ci` for those images. If you used to peek at `registry.ci.openshift.org/<your-ns>/…` after merge, that path goes away; use quay-proxy / QCI instead.
+
+3. **Emergency backfill (platform only)**  
+   If something must temporarily reappear on `app.ci`, Test Platform can mirror **from QCI only** onto `registry.ci.openshift.org` via the `qciToAppCIImages` list in [image-mirroring `_config.yaml`](https://github.com/openshift/release/blob/main/core-services/image-mirroring/_config.yaml). Arbitrary registries are not allowed as sources for that reverse path.
+
+```text
+  Your merge
+      │
+      ▼
+  images job builds on a build farm
+      │
+      ▼
+  promote ──► quay.io/openshift/ci   ◄── authoritative bits (QCI)
+      │
+      ├── payload ns ──► app.ci ImageStream tag (points at QCI digest)
+      └── other ns   ──► QCI float only (no new app.ci copy)
+      │
+      ▼
+  You / jobs pull via quay-proxy.ci.openshift.org
+```
+
+## How user interaction looks (walkthrough)
+
+### Component owner who promotes images
+
+1. Merge a PR that builds and promotes (or wait for the periodic / postsubmit `images` job).  
+2. Wait for the promote step to finish successfully on QCI (failures show up in the Prow job log as they do today).  
+3. Pull what you need:
+
+```bash
+podman login -u=$(oc --context app.ci whoami) -p=$(oc --context app.ci whoami -t) quay-proxy.ci.openshift.org --authfile /tmp/t.c
+podman pull quay-proxy.ci.openshift.org/openshift/ci:<namespace>_<name>_<tag> --authfile /tmp/t.c
+```
+
+4. **Do not** assume a fresh `oc get istag -n <ns>` on `app.ci` exists for non-payload images after this migration. For payload namespaces, the ImageStream tag may still exist, but the storage behind it is QCI.
+
+### Someone writing a Dockerfile or `base_images` entry
+
+Keep using the familiar names (`ocp/4.x:…`, `ci/…`, builder tags, and so on). CI rewrites / imports those to the QCI float at job time. Prefer documenting quay-proxy pullspecs in READMEs and runbooks aimed at humans.
+
+### Someone integrating automation (bots, mirrors, dashboards)
+
+- **Read path:** authenticate to quay-proxy with an `app.ci` ServiceAccount (same RBAC model as today).  
+- **Write path to QCI:** reserved for CI promotion and Test Platform tooling — not for ad-hoc user pushes.  
+- **Write path to `registry.ci.openshift.org` for “put this QCI image back on app.ci”:** only through the controlled reverse-mirror config, not by pointing promotion at an arbitrary external registry.
+
+### Release / payload consumers
+
+Release Controllers and similar consumers continue to use `app.ci` ImageStreams in payload namespaces. Those streams stay meaningful; they track QCI rather than hosting a duplicate blob tree for every tag.
+
+## Docs and runbooks to update when this lands
+
+When the migration finishes rolling out, refresh any page or SOP that still says:
+
+- “Promotion always pushes blobs to both QCI and `registry.ci.openshift.org`.”  
+- “Check `registry.ci.openshift.org/<component-ns>/…` for the latest promoted image” (non-payload).  
+- Examples that use `registry.ci.openshift.org/ci/…` as the **authoritative** pull location for CI tools images — prefer quay-proxy / QCI.
+
+Related deeper background: [Images in CI](/internals/images-in-ci/) (platform internals).
 
 # Common Questions
 
@@ -56,14 +143,14 @@ The access to QCI has to be through a reverse proxy serving `quay-proxy.ci.opens
 
 ### Human Users
 Create a pull request to include a Rover group that the user belongs to as a subject in the rolebinding `qci-image-puller` in [the release repo](https://github.com/openshift/release/blob/main/clusters/app.ci/assets/admin_qci-image-puller_rbac.yaml). 
-```console
+```yaml
 - kind: Group
   name: <rover-group>
   apiGroup: rbac.authorization.k8s.io
 ```
 The change will be applied automatically to the `app.ci` cluster after merging. Note that the group has to be on `app.ci` cluster, i.e., `app.ci` is included `clusters` if it
 is specified in [this config file](https://github.com/openshift/release/blob/main/core-services/sync-rover-groups/_config.yaml).
-```console
+```yaml
   <rover-group>:
     clusters:
     - app.ci
