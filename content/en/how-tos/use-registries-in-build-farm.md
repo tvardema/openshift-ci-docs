@@ -240,11 +240,23 @@ subjects:
 ```
 
 After the pull request is merged, the manifests will be automatically applied to `app.ci`.
-With the `admin_manifest.yaml` described above, the members of group `my-project-admins`
-can [create bound tokens for the service account](https://docs.openshift.com/container-platform/4.13/authentication/bound-service-account-tokens.html#bound-sa-tokens-configuring-externally_bound-service-account-tokens) `image-puller`.
-Once `oc` logs in to `app.ci` with the service account token, we may use the same commands above to pull the images.
-Note that we should avoid creating long-lived tokens for service accounts to lower security risk as described in [the Kubernetes document](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#create-token). Regardless of the token types, the members of group `my-project-admins`
-are responsible for managing the tokens, e.g., rotate the token in case of leaking.
+Members of group `my-project-admins` can then [create a bound token](https://docs.openshift.com/container-platform/4.13/authentication/bound-service-account-tokens.html#bound-sa-tokens-configuring-externally_bound-service-account-tokens) for the ServiceAccount and log in to quay-proxy.
+
+Prefer short-lived tokens. Avoid long-lived ServiceAccount secrets when possible ([Kubernetes guidance](https://kubernetes.io/docs/reference/access-authn-authz/service-accounts-admin/#create-token)). Admins own token rotation if a token leaks.
+
+```bash
+# mint a short-lived token for the ServiceAccount on app.ci
+TOKEN=$(oc --context app.ci -n my-project create token image-puller --duration=24h)
+
+# IMPORTANT: do NOT use -u="$(oc whoami)" for a ServiceAccount.
+# oc whoami returns system:serviceaccount:<ns>:<name>, which contains ":" and breaks
+# HTTP Basic Auth (the proxy sees username "system" and a mangled password).
+# Use any colon-free username; the password must be the ServiceAccount token.
+podman login -u image-puller -p "$TOKEN" quay-proxy.ci.openshift.org --authfile /tmp/qci.json
+podman pull quay-proxy.ci.openshift.org/openshift/ci:ci_ci-operator_latest --authfile /tmp/qci.json
+```
+
+`quay-proxy` validates that `-p` is a valid `app.ci` token. For ServiceAccounts it does not require the `-u` value to match `system:serviceaccount:…`.
 
 
 ## How can I access images that were built during a specific job execution?
