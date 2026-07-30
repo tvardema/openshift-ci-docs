@@ -15,7 +15,7 @@ $(document).ready(function () {
                         description = `${description} containing most Prow services.`;
                     } else if (item['cluster'] === 'core-ci') {
                         description = `${description} to replace app.ci (WIP).`;
-                    } else if (item['cluster'] === 'hosted-mgmt') {
+                    } else if (item['cluster'].includes('hosted-mgmt')) {
                         description = `${description} containing the Hosted Cluster control plane.`;
                     } else if (!item['cluster'].startsWith('build')) {
                         description = `${description} used for ${item['cluster'].replace(/\d+/g, '').toUpperCase()} tests, not managed by DPTP.`;
