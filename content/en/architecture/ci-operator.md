@@ -359,6 +359,11 @@ or `Namespace` so that other repositories can consume them. Publication to an in
 there is a requirement to quickly identify all images that belong to a version; tags will take the form of `version:component`.
 Publication to a `Namespace` creates tags in the form of `component:version` and may be more familiar to users.
 
+The `promotion` stanza names destinations as ImageStream coordinates (`namespace` / `name` / `tag`). Under the hood,
+promotion pushes image bits to **QCI** (`quay.io/openshift/ci`). Payload namespaces (`ocp`, `ocp-priv`, `origin`) also
+update `app.ci` ImageStream tags as **source-refs** to those QCI digests; other namespaces are QCI-only. Pull published
+images via `quay-proxy.ci.openshift.org` — see [How promotion works](/how-tos/use-registries-in-build-farm/#how-promotion-works).
+
 Images are published for each `component` specified in `images[].to` unless explicitly excluded (see examples below).
 
 Images published in this manner are produced when the source repository branch is updated (e.g.
