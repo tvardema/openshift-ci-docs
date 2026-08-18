@@ -54,6 +54,7 @@ operator:
     context_dir: "path/"                  # default to .
     dockerfile_path: "to/Dockerfile"      # default to `Dockerfile`. The path to the Dockerfile, relative to the `context_dir`, to build the bundle (e.g., `bundle.Dockerfile`)
     skip_building_index: false            # default to false
+    skip_if_only_changed: ^docs/|\.md$    # optional: skip bundle build on docs-only PRs
     base_index: "operator-index"          # deprecated
     update_graph: "replaces"              # deprecated
   substitutions:
@@ -65,7 +66,7 @@ operator:
     with: "pipeline:tested-operator"
 {{< / highlight >}}
 
-When configuring a bundle build, five options are available:
+When configuring a bundle build, the following options are available:
 
 * `as`: the image name for the built bundle. Specifying a name for the bundle image allows a multistage workflow
   directly access the bundle by name. The empty string is allowed only for backward compatibility.
@@ -73,11 +74,15 @@ When configuring a bundle build, five options are available:
 * `dockerfile_path`: a path (relative to `context_dir`) to the `Dockerfile` that builds the bundle image,
   defaulting to `bundle.Dockerfile`
 * `skip_building_index`: skip building the index image for this bundle. Default to false. It works only for named bundles, i.e., "as" is not empty.
+* `skip_if_only_changed`: set a regex to skip the auto-generated bundle presubmit when all changes in the pull request match. Works only for named bundles (i.e., `as` is not empty).
+* `run_if_changed`: set a regex to trigger the auto-generated bundle presubmit only when a pull request changes a matching path. Works only for named bundles (i.e., `as` is not empty).
 * `base_index`: the base index to add the bundle to. If set, image must be specified in `base_images` or `images`. It is
 used only in building an index image which is deprecated.
 * `update_graph`: the update mode to use when adding the bundle to the `base_index`. Can be: `semver`, `semver-skippatch`,
   or `replaces` (default: `semver`). Requires `base_index` to be set.  It is
 used only in building an index image which is deprecated.
+
+**Note:** `run_if_changed` and `skip_if_only_changed` are mutually exclusive on the same bundle entry.
 
 The `operator.bundles` stanza is a list, so it is possible to build multiple bundle `images` from one repository.
 
@@ -117,6 +122,42 @@ replaced version.
 Similarly to how the job generator automatically creates a `pull-ci-$ORG-$REPO-$BRANCH-images` job to test image builds
 when `ci-operator` configuration has an `images` stanza, it will also `make` a separate job that builds the configured bundle
 and index `images`. This job, named `pull-ci-$ORG-$REPO-$BRANCH-ci-index` for bundles without configuring `as`, or jobs named `pull-ci-$ORG-$REPO-$BRANCH-ci-index-$BUNDLE` otherwise for each bundle where `$BUNDLE` is resolved by `operator.bundles[].as`, are created only when an `operator` stanza is present. If `operator.bundles[].skip_building_index` is `true`, the job is named `pull-ci-$ORG-$REPO-$BRANCH-ci-bundle-$BUNDLE`.
+
+### Skipping Bundle Builds on Irrelevant PRs
+
+By default, the auto-generated bundle presubmit runs on every pull request (`always_run: true`). For operators where the
+bundle build is expensive (e.g. because `operator.substitutions` forces `ci-operator` to build the full operator image
+first), this can waste significant time on documentation-only or metadata-only PRs.
+
+Setting `skip_if_only_changed` (or `run_if_changed`) on a named bundle entry causes the generated presubmit to use
+`always_run: false` and the corresponding Prow regex matcher, just like the equivalent fields on `images` and `tests[]`.
+
+For example, the Windows Machine Config Operator config that skips its bundle build on docs-only PRs:
+
+{{< highlight yaml >}}
+operator:
+  bundles:
+  - as: wmco-bundle
+    context_dir: .
+    dockerfile_path: bundle.Dockerfile
+    skip_building_index: true
+    skip_if_only_changed: ^(?:docs|\.github|\.tekton)/|\.md$|^(?:\.gitignore|OWNERS|PROJECT|LICENSE)$
+{{< / highlight >}}
+
+This generates a presubmit job (`ci-bundle-wmco-bundle`) that is skipped when a PR only touches files
+matching the regex (e.g. Markdown, docs directories, CI metadata), but still runs when code, Dockerfiles,
+or manifests change:
+
+{{< highlight yaml >}}
+# Generated presubmit (in openshift/release ci-operator/jobs/):
+- always_run: false
+  context: ci/prow/ci-bundle-wmco-bundle
+  name: pull-ci-openshift-windows-machine-config-operator-master-ci-bundle-wmco-bundle
+  skip_if_only_changed: ^(?:docs|\.github|\.tekton)/|\.md$|^(?:\.gitignore|OWNERS|PROJECT|LICENSE)$
+{{< / highlight >}}
+
+The `run_if_changed` field works equivalently but with inverted logic: the job runs only when a matching
+file changes, rather than skipping when only matching files change.
 
 # Running Tests
 

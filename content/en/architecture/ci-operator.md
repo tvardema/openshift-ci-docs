@@ -240,6 +240,9 @@ images:
     to: "mycomponent"
 {{< / highlight >}}
 
+**Note:** `operator.bundles[]` entries also support `skip_if_only_changed` and `run_if_changed` (per-bundle, on named bundles only).
+See [Skipping Bundle Builds on Irrelevant PRs](/how-tos/testing-operator-sdk-operators/#skipping-bundle-builds-on-irrelevant-prs) for details and examples.
+
 By making use of the previously compiled artifacts in the intermediate `pipeline:bin` image, this repository is able to
 cache the Go build. If multiple output `images` exist that rely on a previously built artifact, this caching effect can
 reduce build times dramatically.
