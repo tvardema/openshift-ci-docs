@@ -71,3 +71,7 @@ Follow [this](https://github.com/openshift/release/blob/ca2b56fe13700f7970240e1b
 The `TestPlatformCluster` is an XRD (this is not entirely true, it's a `Claim` but the concept it's strictly tied to an XRD) resource (see [docs.crossplane.io/latest/composition/composite-resource-definitions](https://docs.crossplane.io/latest/composition/composite-resource-definitions/)) whereas the `EphemeralCluster` is a regular CRD.  
 The `EphemeralCluster` CRD `.spec` definition is embedded into `TestPlatformCluster`, this means that
 when the CRD definition changes the XRD must be updated as well (see [xtestplatformcluster/README.md](https://github.com/konflux-ci/crossplane-control-plane/blob/main/config/xtestplatformcluster/README.md)).
+
+## Metrics and Dashboards
+
+The [ephemeral cluster reconciler](http://github.com/openshift/ci-tools/blob/main/pkg/controller/ephemeralcluster/reconciler.go) exposes several [metrics](http://github.com/openshift/ci-tools/blob/main/pkg/controller/ephemeralcluster/metrics.go) charted in a Grafana dashboard that can be found [here](https://ci-route-ci-grafana.apps.ci.l2s4.p1.openshiftapps.com/d/443f167e-140c-4040-b263-cef9f6db9be8/ephemeral-cluster-dashboard).
