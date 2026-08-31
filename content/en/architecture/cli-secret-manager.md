@@ -11,6 +11,7 @@ The Secret Manager CLI is the primary way to manage secrets used in CI workflows
 
 - Create new secrets
 - List, delete and update existing secrets
+- Inspect a secret's metadata (creation date, ownership info) without revealing its value
 - Retrieve authentication information for the service account tied to a secret collection
 
 {{% alert title="Note" color="info" %}}
@@ -174,6 +175,8 @@ This creates a secret at the path `my-collection/aws/access-key-id`.
 - Simple: `aws/password` (group: `aws`, field: `password`)
 - Nested: `ibmcloud/config/api-key` (group: `ibmcloud/config`, field: `api-key`)
 
+You don't need to create the group ahead of time -- there is no separate "create group" step. A group is just part of a secret's path, so it comes into existence automatically the first time you create a secret in it (and stops existing once its last secret is deleted).
+
 After executing this command, you’ll be prompted to enter some metadata.
 These help us track ownership and manage secrets effectively.
 If a field doesn’t apply to your case, enter `none` to continue.
@@ -254,6 +257,31 @@ sm list
 ```
 
 This is useful for general exploration, especially if you're unsure of the collection or group names.
+
+## Inspecting a secret's metadata
+
+To see the metadata associated with a secret, use the `describe` command:
+
+```sh
+sm describe -c my-collection aws/access-key-id
+```
+
+This prints the secret's creation date and the ownership metadata that was
+provided when it was created (Jira project, rotation instructions, and request
+information):
+
+```
+Created:               2026-08-10 15:36:59 UTC
+JIRA project:          my-team
+Rotation instructions: rotated quarterly via the cloud console
+Request information:   https://issues.redhat.com/browse/DPTP-1234
+```
+
+{{% alert title="Note" color="info" %}}
+`describe` only reads metadata -- it never fetches or displays the secret value,
+consistent with the security model. Add `-o json` to get the metadata in JSON
+format.
+{{% /alert %}}
 
 ## Updating a secret
 
@@ -405,6 +433,11 @@ In the following examples, `sm` stands for `./hack/secret-manager.sh`.
   List all secret collections accessible by a Rover group.
 - `sm list`  
   List all secret collections.
+
+## Describe a secret
+
+- `sm describe -c my-collection aws/my-secret`  
+  Show a secret's creation date and ownership metadata (never its value).
 
 ## Get Service Account
 
