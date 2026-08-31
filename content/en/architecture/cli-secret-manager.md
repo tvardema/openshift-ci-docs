@@ -175,6 +175,8 @@ This creates a secret at the path `my-collection/aws/access-key-id`.
 - Simple: `aws/password` (group: `aws`, field: `password`)
 - Nested: `ibmcloud/config/api-key` (group: `ibmcloud/config`, field: `api-key`)
 
+You don't need to create the group ahead of time -- there is no separate "create group" step. A group is just part of a secret's path, so it comes into existence automatically the first time you create a secret in it (and stops existing once its last secret is deleted).
+
 After executing this command, you’ll be prompted to enter some metadata.
 These help us track ownership and manage secrets effectively.
 If a field doesn’t apply to your case, enter `none` to continue.
