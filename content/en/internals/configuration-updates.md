@@ -89,7 +89,7 @@ by which `ConfigMap`s in the cluster are reconciled with the PR changes is:
 
 ### `config-bootstrapper`
 
-A second process, the [`openshift-release-master-config-bootstrapper`](https://prow.ci.openshift.org/job-history/gs/origin-ci-test/logs/openshift-release-master-config-bootstrapper)
+A second process, the [`openshift-release-main-config-bootstrapper`](https://prow.ci.openshift.org/job-history/gs/test-platform-results/logs/openshift-release-main-config-bootstrapper)
 periodic Prow job, also performs this procedure every hour using the
 [`config-bootstrapper`](https://github.com/kubernetes-sigs/prow/tree/main/cmd/config-bootstrapper)
 program, which shares most of its code with the plugin.  The job is not
