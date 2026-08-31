@@ -11,6 +11,7 @@ The Secret Manager CLI is the primary way to manage secrets used in CI workflows
 
 - Create new secrets
 - List, delete and update existing secrets
+- Inspect a secret's metadata (creation date, ownership info) without revealing its value
 - Retrieve authentication information for the service account tied to a secret collection
 
 {{% alert title="Note" color="info" %}}
@@ -255,6 +256,31 @@ sm list
 
 This is useful for general exploration, especially if you're unsure of the collection or group names.
 
+## Inspecting a secret's metadata
+
+To see the metadata associated with a secret, use the `describe` command:
+
+```sh
+sm describe -c my-collection aws/access-key-id
+```
+
+This prints the secret's creation date and the ownership metadata that was
+provided when it was created (Jira project, rotation instructions, and request
+information):
+
+```
+Created:               2026-08-10 15:36:59 UTC
+JIRA project:          my-team
+Rotation instructions: rotated quarterly via the cloud console
+Request information:   https://issues.redhat.com/browse/DPTP-1234
+```
+
+{{% alert title="Note" color="info" %}}
+`describe` only reads metadata -- it never fetches or displays the secret value,
+consistent with the security model. Add `-o json` to get the metadata in JSON
+format.
+{{% /alert %}}
+
 ## Updating a secret
 
 To change the contents of a secret that already exists, use the `update` command.
@@ -405,6 +431,11 @@ In the following examples, `sm` stands for `./hack/secret-manager.sh`.
   List all secret collections accessible by a Rover group.
 - `sm list`  
   List all secret collections.
+
+## Describe a secret
+
+- `sm describe -c my-collection aws/my-secret`  
+  Show a secret's creation date and ownership metadata (never its value).
 
 ## Get Service Account
 
