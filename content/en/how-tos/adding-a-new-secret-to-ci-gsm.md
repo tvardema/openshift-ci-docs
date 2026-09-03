@@ -99,6 +99,12 @@ All fields in `my-collection/aws/` are mounted as files under `/var/run/aws-cred
 /var/run/aws-creds/secret-access-key
 ```
 
+The advantage of mounting an entire group is that you don't have to enumerate every field you want. Whatever the group
+contains is mounted automatically, so you can add, remove, or rename fields in GSM and have those changes picked up
+without touching the step definition. This is especially convenient for groups whose contents evolve over time: you
+update the secret in GSM once and skip the extra config change and PR that mounting individual fields would require.
+Prefer this approach unless your step genuinely needs just one field from a larger group.
+
 ### Mount a single field
 
 To mount only one specific field from a group, add the `field` key:
